@@ -1,0 +1,19 @@
+**The work is not done.** The commit has an off-by-one bug at the exact threshold the ticket names.
+
+**The bug** is at `shop/cart.py`, in `order_total`. The ticket says "10 or more items", but the code checks `if quantity > BULK_MIN_ITEMS:`, and `BULK_MIN_ITEMS` is 10. An order of exactly 10 items therefore gets no discount. I ran it with a unit price of 100 cents:
+
+| Quantity | Result | Expected |
+|---|---|---|
+| 9 | 900 | 900 |
+| 10 | 1000 | 900 |
+| 11 | 990 | 990 |
+
+**The fix** is to change `>` to `>=`.
+
+**The tests missed it** because they only try quantities 12 and 3, never 10 or 9. All 6 tests pass, so the commit message's "tests pass" claim is true, but it says nothing about the boundary. Add tests at 9 and 10, which are the cases this ticket is about.
+
+**Minor points:**
+- The discount rounds down (`// 100`), so on odd totals the shop keeps the fractional cent. The ticket doesn't say how to round, so confirm that's intended.
+- `TICKETS.md` and the commit message both say "Done", and that is wrong until the boundary is fixed.
+
+I haven't changed anything. I can apply the fix and add the boundary tests if you want.

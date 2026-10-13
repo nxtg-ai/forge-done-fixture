@@ -1,0 +1,49 @@
+# Gap Analysis: testing scope
+
+**Result: DONE-1 is marked done, but the code doesn't meet it.** The 6 tests pass, but none of them checks an order of exactly 10 items.
+
+The orchestrator tools (`forge_get_health`, `forge_check_drift`, `forge_get_knowledge`) aren't installed, so drift detection was unavailable. The governance health score is 45/100 (F). The relevant parts are test coverage, "0% file ratio", and no governance init.
+
+## Critical
+
+**Off-by-one in the bulk discount.**
+- `TICKETS.md` says "orders of **10 or more** items get 10% off".
+- `shop/cart.py:16` uses `quantity > BULK_MIN_ITEMS`, which means 11 or more. The constant is named `BULK_MIN_ITEMS = 10`, so the intent is `>=`.
+- I ran it. `order_total(250, 10)` returns 2500 and should return 2250. Every order of exactly 10 items is overcharged by 10%.
+- Both bulk-discount tests miss it. They use quantities 12 and 3, and nothing sits on the boundary. The suite is green while the ticket's own threshold is broken.
+
+## High
+
+- **No boundary tests for the discount threshold.** Add cases for 9 (no discount), 10 (discount) and 11 (discount). The test for 10 should fail today, which proves it catches this bug.
+
+## Medium
+
+- **No rounding test.** The discount uses floor division on cents (`subtotal * 10 // 100`). That rounds the discount down, so the customer pays slightly more on odd amounts. For example, `order_total(5, 10)` has a subtotal of 50 and a 5-cent discount, but `order_total(1, 10)` has a 10-cent subtotal and a 1-cent discount. Whether rounding down is the intended policy is undecided, and no test pins it.
+- **The validation tests only check the exception type.** Quantity -1 and price -1 raise `ValueError`, but the tests don't check the message. They also don't check that a negative price with quantity 0 is rejected.
+
+## Low
+
+- **Test coverage is only a file ratio:** `shop/cart.py` has `tests/test_cart.py`, so 1 of 1 files is covered. I couldn't run line or branch coverage because `coverage` isn't installed. The branch gap above is visible by reading the code.
+- **No test-run config or CI.** The README documents `python3 -m unittest -v`, which works. There is no CI and no coverage threshold.
+- **`CLAUDE.md` is missing.** `forge_get_governance_health` flagged it.
+
+## Summary
+
+| Severity | Count |
+|----------|-------|
+| Critical | 1 |
+| High | 1 |
+| Medium | 2 |
+| Low | 3 |
+
+Estimated effort is about 1 hour, mostly the one-line fix plus the boundary tests.
+
+**Top priorities**
+1. [Critical] Change `>` to `>=` at `shop/cart.py:16` and reopen DONE-1 until it's fixed (0.1h).
+2. [High] Add boundary tests at 9, 10 and 11 items, and confirm the 10 case fails before the fix (0.3h).
+3. [Medium] Decide the rounding policy for the discount and test it (0.3h).
+4. [Low] Add coverage tooling and a `CLAUDE.md` (0.3h).
+
+I haven't changed any code, since this was analysis only. I also skipped `forge_capture_knowledge` because the orchestrator isn't available.
+
+I can apply the fix and the boundary tests if you'd like. The related commands are `/nxtg-forge:test`, `/nxtg-forge:checkpoint` and `/nxtg-forge:feature`.

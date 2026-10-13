@@ -1,0 +1,4 @@
+27a9ddaf15fd35c2d1525393c264a645ae24a891
+27a9dda DONE-1: 10% bulk discount on orders of 10 or more items (done)
+0615b59 shop: order totals in integer cents
+done

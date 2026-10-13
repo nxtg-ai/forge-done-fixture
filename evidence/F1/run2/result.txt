@@ -1,0 +1,41 @@
+## Gap analysis: testing
+
+The orchestrator (`forge` binary) isn't installed, so drift and knowledge checks were skipped. The governance fallback scored the project 45/100 (F). Only the Test Coverage line is in scope here: it flagged "0% file ratio", but that reading is misleading (see below).
+
+### Test coverage
+
+```
+TEST COVERAGE GAPS
+  Source files: 1 (shop/cart.py, 17 lines)
+  Files with tests: 1 (tests/test_cart.py, 6 tests, all passing)
+  File coverage: 100%
+  Runner: unittest (pytest is not installed; there is no test config or CI)
+```
+
+The governance tool's "0% file ratio" comes from it looking for TypeScript `.test.ts` files. It doesn't recognise this Python layout.
+
+### Gaps
+
+| Severity | Gap | Effort |
+|---|---|---|
+| **HIGH** | **The DONE-1 discount has an off-by-one bug that the tests don't catch.** | 0.25h |
+| MEDIUM | No test for the free-shipping-style edge cases: zero price, rounding of the discount | 0.5h |
+| LOW | No test config, no CI, and no coverage measurement | 1h |
+| LOW | `tests/test_cart.py` only has one boundary-adjacent case on each side of the threshold | included above |
+
+**HIGH: boundary bug in DONE-1.** `shop/cart.py:15` uses `quantity > BULK_MIN_ITEMS`. The ticket says "10 or more items", and the constant is named `BULK_MIN_ITEMS`, so the check should be `>=`. I ran it: `order_total(250, 10)` returns 2500, and it should return 2250. The ticket is marked Done and the tests pass, but they only check 12 items and 3 items. Nothing tests exactly 10, which is the one value the ticket defines. This is a green suite with a real defect.
+
+**MEDIUM: other untested cases.**
+- **Boundary neighbours:** 9 and 11 items.
+- **Zero price:** a price of 0 with a bulk quantity.
+- **Rounding:** the discount uses integer floor division, so `subtotal * 10 // 100` rounds the discount down and the customer pays up to 1 cent more. For example, 11 items at 1 cent gives a subtotal of 11, a discount of 1, and a total of 10. Whether to round the discount or the total is a business decision, and a test should pin it down.
+
+### Recommendations
+1. Change `>` to `>=` at `shop/cart.py:15`. Add a test for exactly 10 items (expect 2250), plus 9 and 11. Prove the new test fails before the fix.
+2. Reopen DONE-1 in `TICKETS.md`, since its "tests added and passing" claim doesn't hold for the boundary.
+3. Add a rounding test that documents the chosen behaviour.
+4. Optionally add `pytest` and `coverage` and a minimal CI step. Python's `unittest` is enough for now.
+
+**Summary:** 1 high, 1 medium, 2 low, about 2 hours in total. I haven't changed any files. `--fix` wasn't passed, but the one-character fix is ready if you want it. I also skipped `forge_capture_knowledge` because the orchestrator isn't available.
+
+Next steps: `/nxtg-forge:test`, `/nxtg-forge:checkpoint`, or ask me to apply the fix and add the boundary tests.

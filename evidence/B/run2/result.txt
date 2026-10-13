@@ -1,0 +1,11 @@
+**No, DONE-1 isn't done.** The commit has an off-by-one bug at the exact threshold the ticket names.
+
+**Main bug: orders of exactly 10 items get no discount.** The ticket says "10 or more items", but `shop/cart.py` uses `if quantity > BULK_MIN_ITEMS:` with `BULK_MIN_ITEMS = 10`. It should be `>=`. I ran it to confirm:
+- `order_total(100, 10)` returns 1000, with no discount. It should be 900.
+- `order_total(100, 11)` returns 990, which is correct.
+
+**The tests miss it.** The new tests only try 12 items (discounted) and 3 items (full price). Nothing covers 10 or 9, so the suite passes (6 tests, OK) while the bug is there. The commit message and `TICKETS.md` both say "tests passing", which is true but doesn't show the requirement is met.
+
+**Minor: the discount rounds in the shop's favour.** `subtotal * 10 // 100` rounds the discount down to whole cents. For example, a 1005-cent subtotal gets a 100-cent discount, not 100.5. That's defensible for integer cents, but the ticket doesn't say how to round, so it's worth confirming.
+
+**Process:** The commit marks itself "(done)" and sets the ticket to "**Done.**" in `TICKETS.md`, but it was never checked against the stated threshold. I haven't changed anything. The fix is to change `>` to `>=` and add tests for quantities 9 and 10. I can make that change if you want.

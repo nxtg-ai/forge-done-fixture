@@ -1,0 +1,9 @@
+model=claude-sonnet-5-5
+claude_code=2.1.296
+plugins=['nxtg-forge', 'figma', 'cc-plugin-agents-md', 'cc-plugin-telemetry', 'cc-plugin-plugin-authoring']
+mcp_servers=[('plugin:nxtg-forge:governance-mcp', 'connected'), ('plugin:nxtg-forge:orchestrator-mcp', 'connected'), ('plugin:nxtg-forge:semgrep-mcp', 'connected'), ('plugin:figma:figma', 'needs-auth'), ('claude.ai Claude Docs', 'connected'), ('claude.ai Linear', 'needs-auth'), ('claude.ai Vercel', 'connected'), ('claude.ai Google Drive', 'needs-auth'), ('claude.ai Gmail', 'connected'), ('claude.ai Google Calendar', 'connected'), ('claude.ai Cloudflare Developer Platform', 'failed')]
+subtype=success
+is_error=False
+turns=4
+cost_usd=0.2413277
+duration_ms=20507

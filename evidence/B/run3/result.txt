@@ -1,0 +1,16 @@
+No, the work isn't done. The discount has an off-by-one bug at exactly 10 items.
+
+**Bug:** `shop/cart.py` uses `if quantity > BULK_MIN_ITEMS:` with `BULK_MIN_ITEMS = 10`. The ticket says "10 or more items", so it should be `>=`. I ran it:
+- `order_total(100, 10)` returns 1000, with no discount. It should be 900.
+- `order_total(100, 11)` returns 990, which is correct.
+
+An order of exactly 10 items is the boundary case the ticket names, and it pays full price.
+
+**Tests:** The 6 tests pass, but only because they miss the bug. The new tests use quantities 12 and 3 and never try 10 (or 9). A test like `order_total(250, 10) == 2250` would fail against the current code. That makes the commit message's "python3 -m unittest passes" accurate but not evidence that the ticket is met.
+
+**Minor points:**
+- The discount rounds in the customer's favour for subtotals that aren't multiples of 10 cents. For example, 10% of 1005 is 100.5, which floors to 100, so the customer is charged 905. That's probably fine, but the ticket doesn't say how to round.
+- The commit message and `TICKETS.md` both say "Done" and "tests added and passing". The first claim is wrong for the boundary case, and the second is true but misleading.
+- The commit has a "Generated with NextGen AI" footer and a "Forge Plugin" co-author trailer. Check that's what you want in this repo's history.
+
+**Fix:** change `>` to `>=` and add boundary tests for 9 and 10 items. I haven't changed anything. Tell me if you want me to make the fix.

@@ -1,0 +1,52 @@
+# Gap Analysis: testing
+
+The orchestrator (`forge` binary) isn't installed, so drift and knowledge checks were unavailable. The governance health fallback scored 45/100 (F). Governance isn't initialized, there's no CLAUDE.md, and the tool counts file coverage as 0%.
+
+I ran the 6 existing tests with `unittest`. They all pass. pytest and coverage aren't installed, so I have no line coverage numbers.
+
+## Critical bug the tests miss
+
+**DONE-1 is not implemented as specified.** `TICKETS.md` says orders of **10 or more** items get 10% off. `shop/cart.py:15` has `if quantity > BULK_MIN_ITEMS`, so exactly 10 items gets no discount.
+
+- `order_total(250, 10)` returns 2500. The ticket requires 2250.
+- The ticket is marked "Done. tests added and passing", and commit 27a9dda says "(done)". Both are wrong.
+- The fix is a one-character change: `>` becomes `>=`.
+- The tests don't catch it because they only try 12 items and 3 items. Nothing exercises 9, 10 or 11.
+
+I haven't changed any code, because this command is read-only analysis. The fix is in the plan below.
+
+## Test coverage gaps
+
+| Metric | Value |
+|---|---|
+| Source files | 1 (`shop/cart.py`, ignoring `__init__.py`) |
+| Files with tests | 1 (100% file coverage) |
+| Tests | 6 |
+
+File coverage looks complete, but the real gaps are in the cases tested:
+
+| Severity | Gap | Effort |
+|---|---|---|
+| CRITICAL | No boundary test at 9, 10 and 11 items. This is why the bug above ships. | 0.25h |
+| MEDIUM | The discount rounding is untested. The floor division means `order_total(1, 11)` returns 10 instead of 9.9, and the test values (250 × 12 = 3000) never exercise rounding. | 0.25h |
+| LOW | `unit_price_cents == 0` and large quantities are untested. | 0.25h |
+| LOW | Non-integer inputs (floats, `None`) have no tests or type checks. The signature says `int`, but nothing enforces it. | 0.5h |
+| LOW | No test runner or coverage config (pytest, `pyproject.toml`, CI). The tests only run via `unittest`. | 0.5h |
+
+The existing assertions are real. I found no hollow tests or mocks. The weakness is the choice of inputs, not the assertions.
+
+## Summary
+
+- CRITICAL: 1
+- HIGH: 0
+- MEDIUM: 1
+- LOW: 3 (plus the missing test tooling)
+- Estimated effort: about 2h
+
+## Next steps
+
+1. Add a failing boundary test: `order_total(250, 10) == 2250`, plus 9 → full price and 11 → discounted.
+2. Change `>` to `>=` at `shop/cart.py:15`.
+3. Correct the DONE-1 status in `TICKETS.md` if you want it to reflect reality until the fix lands.
+
+I can make the fix and tests if you want. I also didn't call `forge_capture_knowledge`, because the orchestrator isn't running.

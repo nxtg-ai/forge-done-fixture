@@ -1,0 +1,40 @@
+## CRUCIBLE TEST QUALITY AUDIT: run2 (`shop`)
+
+**Stack:** Python, stdlib `unittest`. There is no pytest, coverage config, CI, or mocking. I did a static read plus one run of the suite, and changed nothing.
+
+### Verdict: FAIL
+
+The suite is clean on the usual fraud patterns, but the one feature it was added to cover, DONE-1, is broken, and the tests can't see it.
+
+### The bug the tests miss
+- **Ticket DONE-1:** "Orders of **10 or more** items get 10% off."
+- **Code:** `shop/cart.py:16` uses `if quantity > BULK_MIN_ITEMS:`. It should be `>=`.
+- **Observed:** `order_total(250, 9)` = 2250 and `order_total(250, 10)` = **2500**, which is full price. `order_total(250, 11)` = 2475. A customer ordering exactly 10 gets no discount, which contradicts the ticket.
+- **Why the tests pass anyway:** the bulk tests use quantities 12 and 3 (`tests/test_cart.py:22,25`). Nothing tests 9, 10 or 11, which is the only place the rule can go wrong.
+- **TICKETS.md:** it marks DONE-1 "Done... tests added and passing". That's false: the tests pass, but the requirement isn't met.
+
+### Pattern results
+| Pattern | Status | Notes |
+|---|---|---|
+| 1. Coverage omit gaming | CLEAN | No coverage config exists. |
+| 2. Hollow assertions | CLEAN | All 6 tests use `assertEqual` or `assertRaises` against concrete values. |
+| 3. Mock proliferation | CLEAN | 0 mocks. |
+| 4. Dead test infrastructure | CLEAN | No skips or env gates. |
+| 5. Mock-heavy integration | CLEAN | No integration tests, and no mocks. |
+| 6. Untested entry points | CLEAN | `order_total` is the only entry point and every branch is touched. |
+| 7. No quality verification | **FOUND (HIGH)** | Values are checked, but there are no boundary tests. The threshold, the feature's core logic, has no coverage. |
+| 8. README badge fraud | CLEAN | There are no badges. The `TICKETS.md` "done" claim is the equivalent and is inaccurate. |
+
+### Real numbers
+- Tests collected: 6, all passing, 0 skipped.
+- Mock ratio: 0%.
+- Coverage: not measured, since no tool is configured. By reading, line coverage is probably near 100%, which shows the line coverage is not catching the bug.
+- Mutation check by hand: changing `>` to `>=` leaves all 6 tests green. That mutant would be the correct behavior, and the current code is the incorrect one. Either way, the suite can't tell which is right.
+
+### Remediation priority
+1. Fix `shop/cart.py:16` to `quantity >= BULK_MIN_ITEMS`.
+2. Add boundary tests: `order_total(250, 9) == 2250`, `order_total(250, 10) == 2250`, and `order_total(250, 11) == 2475`. Run them before the fix to confirm 10 fails.
+3. Cover rounding. `subtotal * 10 // 100` floors the discount, so odd cent amounts round in the shop's favor. Decide whether that is intended and test it.
+4. Correct the `TICKETS.md` status until the fix lands.
+
+I haven't made these changes because you asked for an audit. Do you want me to apply them?

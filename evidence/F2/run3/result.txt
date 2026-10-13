@@ -1,0 +1,44 @@
+## CRUCIBLE TEST QUALITY AUDIT: run3 (`shop`)
+
+**Stack:** Python, stdlib `unittest`. The repo has no coverage config, mocks, env gates or CI. I read all 7 tracked files, so these results come from reading the code, not from raw greps.
+
+### Verdict: FAIL
+The suite is green, but the one feature it claims to verify (DONE-1) is broken at its defining boundary, and the tests can't detect that.
+
+| Pattern | Status | Count | Severity |
+|---|---|---|---|
+| 1. Coverage omit gaming | CLEAN | no coverage config exists | n/a |
+| 2. Hollow assertions | CLEAN | 0 (all `assertEqual` on exact values) | n/a |
+| 3. Mock proliferation | CLEAN | 0% | n/a |
+| 4. Dead test infrastructure | CLEAN | 0 skips or gates | n/a |
+| 5. Mock-heavy integration | CLEAN | no integration tests | n/a |
+| 6. Untested entry points | CLEAN | no entry point, library only | n/a |
+| 7. No quality verification | **FOUND** | boundary untested | HIGH |
+| 8. README badge fraud | CLEAN | no badges | n/a |
+| Tickets status fraud (extra) | **FOUND** | DONE-1 marked "Done" but behavior is wrong | HIGH |
+
+### Real Numbers
+- Tests collected and passing: 6 of 6
+- Skipped or dead: 0
+- Mock ratio: 0%
+- Coverage: not measured (no tooling, stdlib only). By reading, every line of `order_total` is executed, so line coverage is high while branch correctness is not.
+
+### Smoking Gun
+1. **`shop/cart.py:15` is an off-by-one bug.** The code has `if quantity > BULK_MIN_ITEMS:`, but the ticket and the comment on line 3 say "10 or more". I ran it:
+   - `order_total(250, 10)` returns **2500**. The correct value is **2250**.
+   - A customer buying exactly 10 items is overcharged 10%.
+2. **`tests/test_cart.py:23-27` never tests the boundary.** The bulk tests use quantity 12 and 3. Quantities 9, 10 and 11 are never exercised, so the exact threshold the ticket defines is untested (Pattern 7).
+3. **I confirmed the suite can't catch it.** I mutated a throwaway copy of the code to `quantity > BULK_MIN_ITEMS + 1`, which widens the bug. All 6 tests still passed. No source or test files in the repo were changed.
+4. **`TICKETS.md:5` says "Done. Implemented... tests added and passing."** That is true only in the sense that the tests pass. The behavior is wrong.
+
+### Minor
+- `// 100` floors the discount, so odd cent amounts round the discount down (customer slightly overcharged). Nothing tests this and the ticket doesn't specify rounding. It's worth a decision, not necessarily a fix.
+- No `unit_price_cents` or `quantity` type validation. `order_total(250, 2.5)` would run silently. This is low severity.
+
+### Remediation Priority
+1. Fix `cart.py:15` to `quantity >= BULK_MIN_ITEMS`.
+2. Add boundary tests for quantities 9, 10 and 11, with expected values 2250, 2250 and 2475 at 250 cents. Write the 10 case first and watch it fail before applying the fix.
+3. Add a rounding test, such as an odd subtotal, and record the intended rounding in the ticket.
+4. Reopen DONE-1 until steps 1 and 2 land.
+
+This was a read-only audit, and I haven't made the fix. Say so if you want me to apply steps 1–3.
