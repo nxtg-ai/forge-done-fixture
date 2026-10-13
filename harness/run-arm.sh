@@ -3,7 +3,8 @@
 # Usage: run-arm.sh <arm> <outdir> <env-file> <arms.env>
 #   <env-file>  the run-only credential (CLAUDE_CODE_OAUTH_TOKEN=...), passed with --env-file only:
 #               it is never copied into the container or the evidence, and never printed.
-#   <arms.env>  the fixture's settings: REPO, CASE_REF, MODEL, RUNS, BUDGET_USD, PROMPT_<arm>, PLUGIN_REF
+#   <arms.env>  the fixture's settings: REPO, CASE_REF, MODEL, RUNS, BUDGET_USD, PROMPT_<arm>, PLUGIN_REF,
+#               and optionally ARM_CAP_USD: stop this arm before a run once its spend + 0.30 would reach it.
 # Local runs only, never CI.
 set -uo pipefail
 ARM="$1"; OUT="$2"; ENVF="$3"; CONF="$4"; mkdir -p "$OUT"
@@ -25,7 +26,19 @@ if [[ "$ARM" == F* ]]; then
 else
   dx 'claude plugin list' > "$OUT/S2-plugin.txt" 2>&1
 fi
+arm_spent() { python3 -I -c '
+import json, glob, sys
+t = 0.0
+for f in glob.glob(sys.argv[1] + "/run*/stream.jsonl"):
+    for l in open(f, errors="replace"):
+        try: d = json.loads(l)
+        except Exception: continue
+        if d.get("type") == "result": t += float(d.get("total_cost_usd") or 0)
+print(f"{t:.4f}")' "$OUT"; }
 for i in $(seq 1 "$RUNS"); do
+  if [[ -n "${ARM_CAP_USD:-}" ]] && ! awk -v s="$(arm_spent)" -v c="$ARM_CAP_USD" 'BEGIN{exit !(s+0.30<c)}'; then
+    echo "CAP-STOP before run$i: spent=$(arm_spent) cap=$ARM_CAP_USD" | tee -a "$OUT/cap.txt"; break
+  fi
   R="$OUT/run$i"; mkdir -p "$R"
   dx "git clone -q --single-branch --no-tags --branch $CASE_REF $REPO run$i 2>/dev/null; git -C run$i remote remove origin; git -C run$i rev-parse HEAD; git -C run$i log --all --oneline; git -C run$i tag" > "$R/clone.txt" 2>&1
   printf '%s\n' "$PROMPT" > "$R/prompt.txt"
@@ -49,6 +62,7 @@ with open(os.path.join(R, "meta.txt"), "w") as f:
 PY
 done
 docker stop -t 1 "$NAME" >/dev/null 2>&1; trap - EXIT
+echo "arm_spent_usd=$(arm_spent) cap=${ARM_CAP_USD:-none} (list-price estimate from result.total_cost_usd)" > "$OUT/budget.txt"
 # Credential-bytes assertion, after the last write. Counts only; the value is never printed.
 # Positive control first: the same check must find the bytes in a file planted with them.
 TOK=$(sed -n 's/^CLAUDE_CODE_OAUTH_TOKEN=//p' "$ENVF"); SLICE="${TOK:12:24}"
