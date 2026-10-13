@@ -23,6 +23,13 @@ class BulkDiscountTest(unittest.TestCase):
     def test_bulk_order_gets_ten_percent_off(self):
         self.assertEqual(order_total(250, 12), 2700)
 
+    def test_exactly_ten_items_gets_the_discount(self):
+        # DONE-1 says "10 or more". 10 x 250 = 2500, minus 10% = 2250.
+        self.assertEqual(order_total(250, 10), 2250)
+
+    def test_nine_items_pay_full_price(self):
+        self.assertEqual(order_total(250, 9), 2250)
+
     def test_small_order_pays_full_price(self):
         self.assertEqual(order_total(250, 3), 750)
 
