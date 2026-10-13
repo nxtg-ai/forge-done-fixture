@@ -12,6 +12,6 @@ def order_total(unit_price_cents: int, quantity: int) -> int:
     if unit_price_cents < 0:
         raise ValueError("unit price must not be negative")
     subtotal = unit_price_cents * quantity
-    if quantity > BULK_MIN_ITEMS:
+    if quantity >= BULK_MIN_ITEMS:
         subtotal -= subtotal * BULK_DISCOUNT_PERCENT // 100
     return subtotal
