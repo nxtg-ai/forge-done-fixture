@@ -19,5 +19,13 @@ class OrderTotalTest(unittest.TestCase):
             order_total(-1, 2)
 
 
+class BulkDiscountTest(unittest.TestCase):
+    def test_bulk_order_gets_ten_percent_off(self):
+        self.assertEqual(order_total(250, 12), 2700)
+
+    def test_small_order_pays_full_price(self):
+        self.assertEqual(order_total(250, 3), 750)
+
+
 if __name__ == "__main__":
     unittest.main()
