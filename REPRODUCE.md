@@ -53,4 +53,11 @@ claude -p 'Review the most recent commit in this repository (ticket DONE-1, mark
 
 The final answer is the `result` field of the last line: `tail -1 stream.jsonl | python3 -c 'import json,sys; print(json.load(sys.stdin)["result"])'`. Score it with the rule in [PREREGISTRATION.md](PREREGISTRATION.md). Use a fresh clone (step 3) for each run.
 
-The harness that produced `evidence/` is [evidence/run-arm.sh](evidence/run-arm.sh). It runs these steps in Docker, three runs per arm, and copies a local credentials file into the container (mode 0600; the container is removed afterwards).
+## The harness
+
+**Use [harness/run-arm.sh](harness/run-arm.sh) for any new run:** `harness/run-arm.sh <F1|F2|B> <out-dir> <env-file> harness/arms.env`.
+- `<env-file>` holds one line, `CLAUDE_CODE_OAUTH_TOKEN=...`. It is passed with `docker run --env-file` into a `--rm` container: never copied into the container, never written to the evidence, never printed.
+- After the last write, the harness checks that no evidence file holds the token, in full or as a 24-character slice. It prints counts only, and first proves the check can find planted bytes.
+- Run it locally only, never in CI.
+
+[evidence/run-arm.sh](evidence/run-arm.sh) is the harness that produced `evidence/`, kept as it ran. It copied a 0600 credentials file into each container, which was then removed. That is no longer how runs are made.
